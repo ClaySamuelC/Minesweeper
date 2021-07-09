@@ -1,6 +1,14 @@
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
 
+struct tile
+{
+	uint8_t tile;
+	bool revealed;
+	bool flagged;
+	bool mined;
+};
+
 class Minesweeper : public olc::PixelGameEngine
 {
 public:
@@ -14,7 +22,7 @@ public:
 
 	int nMineTotal;
 
-	std::unique_ptr<wchar_t[]> field;
+	std::unique_ptr<tile[]> field;
 
 public:
 	void shuffleField()
@@ -22,7 +30,7 @@ public:
 		for (int i = vFieldSize.x * vFieldSize.y - 1; i >= 0; i--)
 		{
 			int r = rand() % (i + 1);
-			wchar_t tmp = field[i];
+			tile tmp = field[i];
 			field[i] = field[r];
 			field[r] = tmp;
 		}
@@ -30,13 +38,13 @@ public:
 
 	bool OnUserCreate() override
 	{
-		field = std::make_unique<wchar_t[]>(vFieldSize.x * vFieldSize.y);
+		field = std::make_unique<tile[]>(vFieldSize.x * vFieldSize.y);
 		nMineTotal = 10;
 		
 		// populate field
 		for (int i = 0; i < vFieldSize.x * vFieldSize.y; i++)
 		{
-			field[i] = (i < nMineTotal) ? L'#' : L'.';
+			field[i] = { 0, false, false, (i < nMineTotal) ? true : false };
 		}
 
 		shuffleField();
@@ -46,11 +54,31 @@ public:
 
 	bool OnUserUpdate(float fElapsedTime) override
 	{
+		auto GetTile = [&](int x, int y) {
+			return field[y * vFieldSize.x + x];
+		};
+
+		auto SetTile = [&](int x, int y, tile t)
+		{
+			field[y * vFieldSize.x + x] = t;
+		};
+
 		Clear(olc::BLACK);
+
 
 		// Input:
 		if (GetKey(olc::SPACE).bPressed)
 			shuffleField();
+
+		// Mouse input
+		olc::vi2d vMouse = { GetMouseX(), GetMouseY() };
+		olc::vi2d vTileSelected = vMouse / vTileSize;
+		
+		if (GetMouse(0).bPressed)
+		{
+			field[vTileSelected.y * vFieldSize.x + vTileSelected.x].flagged = 
+				!field[vTileSelected.y * vFieldSize.x + vTileSelected.x].flagged;
+		}
 
 		// Draw field
 		for (int y = 0; y < vFieldSize.y; y++)
@@ -58,14 +86,13 @@ public:
 			for (int x = 0; x < vFieldSize.x; x++)
 			{
 				olc::Pixel color;
-				switch (field[y * vFieldSize.x + x])
-				{
-				case L'#':
-					color = olc::RED;
-					break;
-				default:
-					color = olc::GREY;
-				}
+				tile curr = field[y * vFieldSize.x + x];
+
+				if		(curr.flagged)	color = olc::GREEN;
+				else if (curr.mined)	color = olc::RED;
+				else if (curr.revealed) color = olc::WHITE;
+				else					color = olc::GREY;
+
 				FillRect(x * vTileSize.x, y * vTileSize.y, vTileSize.x - 1, vTileSize.y - 1, color);
 			}
 		}
