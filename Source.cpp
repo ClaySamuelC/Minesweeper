@@ -80,10 +80,20 @@ public:
 		}
 	}
 
+	void resetTiles()
+	{
+		for (int i = 0; i < vFieldSize.x * vFieldSize.y; i++)
+		{
+			field[i].flagged = false;
+			field[i].revealed = false;
+		}
+	}
+
 	void resetField()
 	{
 		shuffleField();
 		setNeighborCounts();
+		resetTiles();
 	}
 
 	void recursiveReveal(int i)
@@ -106,6 +116,51 @@ public:
 				}
 			}
 		}
+	}
+
+	void revealNeighbors(int i)
+	{
+		if (!field[i].revealed || field[i].neighbors == 0)
+			return;
+
+		int neighborFlagCount = getNeighborFlagCount(i);
+		if (neighborFlagCount == field[i].neighbors)
+		{
+			int xStart = (i % vFieldSize.x == 0) ? 0 : -1;
+			int xEnd = (i % vFieldSize.x == vFieldSize.x - 1) ? 0 : 1;
+			int yStart = (i < vFieldSize.x) ? 0 : -1;
+			int yEnd = (i >= vFieldSize.x * (vFieldSize.y - 1)) ? 0 : 1;
+			for (int x = xStart; x <= xEnd; x++)
+			{
+				for (int y = yStart; y <= yEnd; y++)
+				{
+					int l = i + (y * vFieldSize.x) + x;
+					if (l != i && !field[l].flagged && !field[l].revealed)
+						recursiveReveal(l);
+				}
+			}
+		}
+	}
+
+	int getNeighborFlagCount(int i)
+	{
+		int n = 0;
+
+		int xStart = (i % vFieldSize.x == 0) ? 0 : -1;
+		int xEnd = (i % vFieldSize.x == vFieldSize.x - 1) ? 0 : 1;
+		int yStart = (i < vFieldSize.x) ? 0 : -1;
+		int yEnd = (i >= vFieldSize.x * (vFieldSize.y - 1)) ? 0 : 1;
+		for (int x = xStart; x <= xEnd; x++)
+		{
+			for (int y = yStart; y <= yEnd; y++)
+			{
+				int l = i + (y * vFieldSize.x) + x;
+				if (l != i && field[l].flagged)
+					n++;
+			}
+		}
+
+		return n;
 	}
 
 	bool OnUserCreate() override
@@ -149,6 +204,8 @@ public:
 			recursiveReveal(vTileSelected.y * vFieldSize.x + vTileSelected.x);
 		if (GetMouse(1).bPressed)
 			flagTile(field[vTileSelected.y * vFieldSize.x + vTileSelected.x]);
+		if (GetMouse(2).bPressed)
+			revealNeighbors(vTileSelected.y * vFieldSize.x + vTileSelected.x);
 
 		// Draw field
 		for (int y = 0; y < vFieldSize.y; y++)
